@@ -1,0 +1,29 @@
+plugins {
+    id 'java'
+    id "com.github.johnrengelman.shadow" version "6.1.0"
+}
+
+group 'pl.pateman'
+version '1.0.0'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    // Master module
+    implementation(project(":"))
+    implementation 'com.github.Minestom:Minestom:-SNAPSHOT'
+    implementation 'org.joml:joml-jdk8:1.9.11'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'org.krystilize.dynvisualizer.DynamicAABBVisualiser', "Multi-Release": true
+    }
+}

@@ -31,8 +31,8 @@ public class AABBTreeTest
       TestEntity entity = new TestEntity(1, 0.0f, 0.0f, 10.0f, 10.0f);
 
       // When
-      tree.add(entity);
-      tree.add(entity);
+      assertTrue("Adding an object once should return true", tree.add(entity));
+      assertFalse("Adding the same object again should return false", tree.add(entity));
 
       // Then
       assertEquals(1, tree.size());
@@ -185,7 +185,7 @@ public class AABBTreeTest
 
       // Then
       assertFalse(tree.getFreeNodes().isEmpty());
-      assertEquals(0, (int) tree.getFreeNodes().peek());
+      assertEquals(0, tree.getFreeNodes().peekInt(0));
    }
 
    @Test

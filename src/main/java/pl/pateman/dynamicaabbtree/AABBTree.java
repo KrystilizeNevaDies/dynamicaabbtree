@@ -1,5 +1,10 @@
 package pl.pateman.dynamicaabbtree;
 
+import it.unimi.dsi.fastutil.Stack;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntStack;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.joml.*;
 
 import java.util.*;
@@ -18,16 +23,20 @@ public final class AABBTree<T extends Boundable & Identifiable> {
     private final AABBTreeHeuristicFunction<T> insertionHeuristicFunction;
     private final AABBOverlapFilter<T> defaultAABBOverlapFilter;
     private final CollisionFilter<T> defaultCollisionFilter;
-    private final Map<AABBTreeObject<T>, Integer> objects;
-    private final Deque<Integer> freeNodes;
+    private final Object2IntMap<AABBTreeObject<T>> objects;
+    private final IntArrayList freeNodes;
     private final FrustumIntersection frustumIntersection;
     private final RayAabIntersection rayIntersection;
 
     private int root;
-    private float fatAABBMargin;
+    private final float fatAABBMargin;
 
     public AABBTree() {
         this(new AreaAABBHeuristicFunction<>(), DEFAULT_FAT_AABB_MARGIN);
+    }
+
+    public AABBTree(float fatAABBMargin) {
+        this(new AreaAABBHeuristicFunction<>(), fatAABBMargin);
     }
 
     public AABBTree(AABBTreeHeuristicFunction<T> insertionHeuristicFunction, float fatAABBMargin) {
@@ -37,8 +46,8 @@ public final class AABBTree<T extends Boundable & Identifiable> {
         if (this.insertionHeuristicFunction == null) {
             throw new IllegalArgumentException("A valid insertion heuristic function is required");
         }
-        objects = new HashMap<>();
-        freeNodes = new ArrayDeque<>();
+        objects = new Object2IntOpenHashMap<>();
+        freeNodes = new IntArrayList();
         defaultAABBOverlapFilter = new DefaultAABBOverlapFilter<>();
         defaultCollisionFilter = new DefaultCollisionFilter<>();
         this.fatAABBMargin = fatAABBMargin;
@@ -51,7 +60,7 @@ public final class AABBTree<T extends Boundable & Identifiable> {
         if (freeNodes.isEmpty()) {
             return new AABBTreeNode<>();
         }
-        Integer freeIndex = freeNodes.pop();
+        int freeIndex = freeNodes.popInt();
 
         AABBTreeNode<T> aabbTreeNode = nodes.get(freeIndex);
         aabbTreeNode.resetForReuse();
@@ -59,7 +68,7 @@ public final class AABBTree<T extends Boundable & Identifiable> {
     }
 
     private void deallocateNode(AABBTreeNode<T> node) {
-        freeNodes.offer(node.getIndex());
+        freeNodes.push(node.getIndex());
     }
 
     private int addNodeAndGetIndex(AABBTreeNode<T> node) {
@@ -248,12 +257,12 @@ public final class AABBTree<T extends Boundable & Identifiable> {
 
     private void detectCollisionPairsWithNode(AABBTreeNode<T> nodeToTest, CollisionFilter<T> filter, Set<CollisionPair<T>> alreadyTested,
                                               List<CollisionPair<T>> result) {
-        Deque<Integer> stack = new ArrayDeque<>();
-        stack.offer(root);
+        IntStack stack = new IntArrayList();
+        stack.push(root);
         AABBf overlapWith = nodeToTest.getAABB();
 
         while (!stack.isEmpty()) {
-            Integer nodeIndex = stack.pop();
+            int nodeIndex = stack.pop();
             if (nodeIndex == AABBTreeNode.INVALID_NODE_INDEX) {
                 continue;
             }
@@ -270,17 +279,23 @@ public final class AABBTree<T extends Boundable & Identifiable> {
                         result.add(collisionPair);
                     }
                 } else {
-                    stack.offer(node.getLeftChild());
-                    stack.offer(node.getRightChild());
+                    stack.push(node.getLeftChild());
+                    stack.push(node.getRightChild());
                 }
             }
         }
     }
 
-    public void add(T object) {
+    /**
+     * Adds this object to the tree
+     *
+     * @param object the object to add
+     * @return true if this tree changed as a result of the call
+     */
+    public boolean add(T object) {
         if (contains(object)) {
             update(object);
-            return;
+            return false;
         }
 
         AABBTreeNode<T> leafNode = createLeafNode(object);
@@ -293,6 +308,7 @@ public final class AABBTree<T extends Boundable & Identifiable> {
         }
 
         objects.put(AABBTreeObject.create(object), newNodeIndex);
+        return true;
     }
 
     public void clear() {
@@ -313,8 +329,12 @@ public final class AABBTree<T extends Boundable & Identifiable> {
     }
 
     public void remove(T object) {
-        Integer objectNodeIndex = objects.remove(AABBTreeObject.create(object));
-        if (root == AABBTreeNode.INVALID_NODE_INDEX || objectNodeIndex == null) {
+        var treeObject = AABBTreeObject.create(object);
+        if (!objects.containsKey(treeObject)) {
+            return;
+        }
+        int objectNodeIndex = objects.removeInt(AABBTreeObject.create(object));
+        if (root == AABBTreeNode.INVALID_NODE_INDEX) {
             return;
         }
 
@@ -335,6 +355,7 @@ public final class AABBTree<T extends Boundable & Identifiable> {
         deallocateNode(node);
 
         if (nodeGrandparent == null) {
+            assert nodeSibling != null;
             root = nodeSibling.getIndex();
             nodeSibling.setParent(AABBTreeNode.INVALID_NODE_INDEX);
             return;
@@ -370,8 +391,7 @@ public final class AABBTree<T extends Boundable & Identifiable> {
 
         Set<CollisionPair<T>> alreadyTested = new HashSet<>();
 
-        for (int i = 0; i < nodes.size(); i++) {
-            AABBTreeNode<T> testedNode = nodes.get(i);
+        for (AABBTreeNode<T> testedNode : nodes) {
             if (!testedNode.isLeaf()) {
                 continue;
             }
@@ -404,11 +424,13 @@ public final class AABBTree<T extends Boundable & Identifiable> {
             return;
         }
 
-        Deque<Integer> stack = new ArrayDeque<>();
-        stack.offer(root);
+        IntStack stack = new IntArrayList();
+
+//        Deque<Integer> stack = new ArrayDeque<>();
+        stack.push(root);
 
         while (!stack.isEmpty()) {
-            Integer nodeIndex = stack.pop();
+            int nodeIndex = stack.pop();
             if (nodeIndex == AABBTreeNode.INVALID_NODE_INDEX) {
                 continue;
             }
@@ -422,8 +444,8 @@ public final class AABBTree<T extends Boundable & Identifiable> {
                         result.add(nodeData);
                     }
                 } else {
-                    stack.offer(node.getLeftChild());
-                    stack.offer(node.getRightChild());
+                    stack.push(node.getLeftChild());
+                    stack.push(node.getRightChild());
                 }
             }
         }
@@ -437,7 +459,7 @@ public final class AABBTree<T extends Boundable & Identifiable> {
         return objects.size();
     }
 
-    List<AABBTreeNode<T>> getNodes() {
+    public List<AABBTreeNode<T>> getNodes() {
         return nodes;
     }
 
@@ -445,7 +467,7 @@ public final class AABBTree<T extends Boundable & Identifiable> {
         return root;
     }
 
-    Deque<Integer> getFreeNodes() {
+    IntArrayList getFreeNodes() {
         return freeNodes;
     }
 }

@@ -1,6 +1,5 @@
 package pl.pateman.dynamicaabbtree;
 
-public interface Identifiable
-{
-   long getID();
+public interface Identifiable {
+    long getID();
 }

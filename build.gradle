@@ -5,13 +5,20 @@ plugins {
 group 'pl.pateman'
 version '1.0.0'
 
-sourceCompatibility = 1.8
+sourceCompatibility = JavaVersion.VERSION_17
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    api 'org.joml:joml-jdk8:1.9.11'
+    implementation 'org.joml:joml-jdk8:1.9.11'
+    implementation 'it.unimi.dsi:fastutil:8.5.8'
     testImplementation group: 'junit', name: 'junit', version: '4.12'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'org.krystilize.dynvisualizer', "Multi-Release": true
+    }
 }

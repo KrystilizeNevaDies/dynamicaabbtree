@@ -2,7 +2,7 @@ package pl.pateman.dynamicaabbtree;
 
 import org.joml.AABBf;
 
-final class AABBTreeNode<E extends Boundable> {
+public final class AABBTreeNode<E extends Boundable> {
     private static final int MAX_NUM_OF_CHILDREN_PER_NODE = 2;
     static final int INVALID_NODE_INDEX = -1;
     static final int LEFT_CHILD = 0;
@@ -25,7 +25,7 @@ final class AABBTreeNode<E extends Boundable> {
         index = INVALID_NODE_INDEX;
     }
 
-    boolean isLeaf() {
+    public boolean isLeaf() {
         return getLeftChild() == INVALID_NODE_INDEX;
     }
 
@@ -64,15 +64,15 @@ final class AABBTreeNode<E extends Boundable> {
         aabb.setMax(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
     }
 
-    int getLeftChild() {
+    public int getLeftChild() {
         return children[LEFT_CHILD];
     }
 
-    int getRightChild() {
+    public int getRightChild() {
         return children[RIGHT_CHILD];
     }
 
-    AABBf getAABB() {
+    public AABBf getAABB() {
         return aabb;
     }
 
